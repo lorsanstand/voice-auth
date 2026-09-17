@@ -1,9 +1,5 @@
 package mathlib
 
-// ExtractFrames splits samples into overlapping frames.
-//
-// The signal is padded on both sides so that the first frame is centered
-// around the first sample and every returned frame has frameSize samples.
 func ExtractFrames(samples []float64, frameSize, hopSize int) [][]float64 {
 	if frameSize <= 0 || hopSize <= 0 || len(samples) == 0 {
 		return nil
