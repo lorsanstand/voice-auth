@@ -24,12 +24,12 @@ func NewHammingWindow(size int, alpha, beta float64) *HammingWindow {
 	return &HammingWindow{window: w}
 }
 
-func (h *HammingWindow) Windowing(samples []complex128) {
+func (h *HammingWindow) Windowing(samples []float64) {
 	if h == nil {
 		return
 	}
 
 	for i := 0; i < len(samples) && i < len(h.window); i++ {
-		samples[i] = complex(real(samples[i])*h.window[i], imag(samples[i])*h.window[i])
+		samples[i] *= h.window[i]
 	}
 }
