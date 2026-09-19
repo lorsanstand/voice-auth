@@ -2,7 +2,6 @@ package mathlib
 
 import (
 	"math"
-	"math/cmplx"
 )
 
 func HzToMel(hz float64) float64 {
@@ -72,8 +71,9 @@ func (fb *MelFilterBank) ComputeMelEnergies(spectrum []complex128) []float64 {
 
 	powerSpectrum := make([]float64, numBins)
 	for k := 0; k < numBins; k++ {
-		mag := cmplx.Abs(spectrum[k])
-		powerSpectrum[k] = (mag * mag) / float64(fb.FFTSize)
+		realPart := real(spectrum[k])
+		imagPart := imag(spectrum[k])
+		powerSpectrum[k] = (realPart*realPart + imagPart*imagPart) / float64(fb.FFTSize)
 	}
 
 	melEnergies := make([]float64, fb.NumFilters)
