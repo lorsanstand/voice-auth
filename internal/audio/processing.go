@@ -3,6 +3,7 @@ package audio
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math"
 )
 
@@ -17,6 +18,21 @@ func ProcessWAV(path string) (WAV, error) {
 		return WAV{}, err
 	}
 
+	return prepare(input)
+}
+
+// ProcessWAVReader reads a PCM WAV stream, converts it to mono, and resamples
+// it to 16 kHz without extracting frames or calculating audio features.
+func ProcessWAVReader(reader io.ReadSeeker) (WAV, error) {
+	input, err := ReadWAV(reader)
+	if err != nil {
+		return WAV{}, err
+	}
+
+	return prepare(input)
+}
+
+func prepare(input WAV) (WAV, error) {
 	samples, err := ToMono(input.Samples, input.Channels)
 	if err != nil {
 		return WAV{}, fmt.Errorf("convert WAV to mono: %w", err)
