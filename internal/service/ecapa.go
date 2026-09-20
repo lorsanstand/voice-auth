@@ -9,6 +9,7 @@ import (
 
 	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 
+	"github.com/lorsanstand/voice-auth/internal/mathlib"
 	"github.com/lorsanstand/voice-auth/internal/models"
 	"github.com/lorsanstand/voice-auth/internal/utils"
 )
@@ -105,6 +106,30 @@ func (e *ECAPABiometry) DeleteVoice(ctx context.Context, id string) error {
 		return fmt.Errorf("error deleting ECAPA data from DB: %w", err)
 	}
 	return nil
+}
+
+func (e *ECAPABiometry) Compare(samplesA, samplesB []float64) (float32, error) {
+	first, err := e.embedding(samplesA)
+	if err != nil {
+		return 0, err
+	}
+	second, err := e.embedding(samplesB)
+	if err != nil {
+		return 0, err
+	}
+
+	first64 := make([]float64, len(first))
+	second64 := make([]float64, len(second))
+	for i := range first {
+		first64[i] = float64(first[i])
+		second64[i] = float64(second[i])
+	}
+
+	similarity, err := mathlib.CosineSimilarity(first64, second64)
+	if err != nil {
+		return 0, fmt.Errorf("compare ECAPA vectors: %w", err)
+	}
+	return float32(similarity), nil
 }
 
 func (e *ECAPABiometry) embedding(samples []float64) ([]float32, error) {

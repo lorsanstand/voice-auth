@@ -43,6 +43,8 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		h.register(writer, request)
 	case request.URL.Path == "/voices/search" && request.Method == http.MethodPost:
 		h.search(writer, request)
+	case request.URL.Path == "/voices/compare" && request.Method == http.MethodPost:
+		h.compare(writer, request)
 	case strings.HasPrefix(request.URL.Path, "/voices/") && request.Method == http.MethodDelete:
 		h.delete(writer, request)
 	case request.URL.Path == "/ecapa/voices" && request.Method == http.MethodGet:
@@ -51,6 +53,8 @@ func (h *Handler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		h.registerECAPA(writer, request)
 	case request.URL.Path == "/ecapa/voices/search" && request.Method == http.MethodPost:
 		h.searchECAPA(writer, request)
+	case request.URL.Path == "/ecapa/voices/compare" && request.Method == http.MethodPost:
+		h.compareECAPA(writer, request)
 	case strings.HasPrefix(request.URL.Path, "/ecapa/voices/") && request.Method == http.MethodDelete:
 		h.deleteECAPA(writer, request)
 	default:
@@ -134,6 +138,39 @@ func (h *Handler) delete(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) compare(writer http.ResponseWriter, request *http.Request) {
+	first, second, err := h.readAudioPair(writer, request)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer first.Close()
+	defer second.Close()
+
+	firstFrames, err := readFrames(first)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+	secondFrames, err := readFrames(second)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	similarity, err := h.biometry.Compare(firstFrames, secondFrames)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, service.ErrSmallSamples) {
+			status = http.StatusBadRequest
+		}
+		writeError(writer, status, err.Error())
+		return
+	}
+
+	writeJSON(writer, http.StatusOK, map[string]float32{"similarity": similarity})
 }
 
 func (h *Handler) getAllECAPA(writer http.ResponseWriter, request *http.Request) {
@@ -234,6 +271,44 @@ func (h *Handler) deleteECAPA(writer http.ResponseWriter, request *http.Request)
 	writer.WriteHeader(http.StatusNoContent)
 }
 
+func (h *Handler) compareECAPA(writer http.ResponseWriter, request *http.Request) {
+	if h.ecapa == nil {
+		writeError(writer, http.StatusServiceUnavailable, "ECAPA-TDNN model is not configured")
+		return
+	}
+
+	first, second, err := h.readAudioPair(writer, request)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer first.Close()
+	defer second.Close()
+
+	firstSamples, err := readSamples(first)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+	secondSamples, err := readSamples(second)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	similarity, err := h.ecapa.Compare(firstSamples, secondSamples)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, service.ErrSmallSamples) {
+			status = http.StatusBadRequest
+		}
+		writeError(writer, status, err.Error())
+		return
+	}
+
+	writeJSON(writer, http.StatusOK, map[string]float32{"similarity": similarity})
+}
+
 func (h *Handler) readAudioForm(writer http.ResponseWriter, request *http.Request, requireName bool) (multipartFile, string, error) {
 	request.Body = http.MaxBytesReader(writer, request.Body, h.maxUploadSize)
 	if err := request.ParseMultipartForm(h.maxUploadSize); err != nil {
@@ -252,6 +327,25 @@ func (h *Handler) readAudioForm(writer http.ResponseWriter, request *http.Reques
 	}
 
 	return file, name, nil
+}
+
+func (h *Handler) readAudioPair(writer http.ResponseWriter, request *http.Request) (multipartFile, multipartFile, error) {
+	request.Body = http.MaxBytesReader(writer, request.Body, h.maxUploadSize)
+	if err := request.ParseMultipartForm(h.maxUploadSize); err != nil {
+		return nil, nil, fmt.Errorf("read multipart form: %w", err)
+	}
+
+	first, _, err := request.FormFile("first")
+	if err != nil {
+		return nil, nil, errors.New("form file 'first' is required")
+	}
+	second, _, err := request.FormFile("second")
+	if err != nil {
+		first.Close()
+		return nil, nil, errors.New("form file 'second' is required")
+	}
+
+	return first, second, nil
 }
 
 type multipartFile interface {

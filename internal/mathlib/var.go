@@ -1,6 +1,27 @@
 package mathlib
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
+
+func CosineSimilarity(first, second []float64) (float64, error) {
+	if len(first) == 0 || len(first) != len(second) {
+		return 0, fmt.Errorf("vectors must have the same non-zero size")
+	}
+
+	var dot, firstNorm, secondNorm float64
+	for i := range first {
+		dot += first[i] * second[i]
+		firstNorm += first[i] * first[i]
+		secondNorm += second[i] * second[i]
+	}
+	if firstNorm == 0 || secondNorm == 0 {
+		return 0, fmt.Errorf("vectors must not be zero")
+	}
+
+	return dot / (math.Sqrt(firstNorm) * math.Sqrt(secondNorm)), nil
+}
 
 // NormalizedMeanStdMatrix returns one vector made from the normalized means
 // and standard deviations of columns starting at firstColumn.

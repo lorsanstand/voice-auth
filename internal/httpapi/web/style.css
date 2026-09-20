@@ -285,6 +285,53 @@ input[type="text"]:focus {
   line-height: 1.4;
 }
 
+.level-meter {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #e4e8ed;
+}
+
+.level-meter span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+  transition: width .08s linear;
+}
+
+.audio-preview {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-muted);
+}
+
+.audio-preview audio {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+}
+
+.clear-audio {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  border: 1px solid #e2b8bd;
+  border-radius: 5px;
+  color: var(--red);
+  background: #fff8f8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.clear-audio:hover {
+  background: #ffeded;
+}
+
 .button {
   border: 1px solid transparent;
   border-radius: 5px;
@@ -340,6 +387,33 @@ input[type="text"]:focus {
   font-size: 13px;
 }
 
+.result.high {
+  border-color: #b7dec8;
+  background: #f4fbf7;
+}
+
+.result.high .score {
+  color: var(--green);
+}
+
+.result.medium {
+  border-color: #e5d39e;
+  background: #fffaf0;
+}
+
+.result.medium .score {
+  color: #9a7415;
+}
+
+.result.low {
+  border-color: #e2b8bd;
+  background: #fff8f8;
+}
+
+.result.low .score {
+  color: var(--red);
+}
+
 .result-name {
   margin-bottom: 5px;
   font-size: 17px;
@@ -347,9 +421,50 @@ input[type="text"]:focus {
 }
 
 .score {
+  margin-bottom: 5px;
   color: var(--green);
   font-size: 14px;
   font-weight: 700;
+}
+
+.result-category {
+  margin-bottom: 3px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.result-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.compare-card {
+  margin-top: 16px;
+}
+
+.compare-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.compare-form .audio-preview {
+  margin-top: -6px;
+}
+
+.compare-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.compare-actions .button {
+  flex: 1 1 180px;
+}
+
+.compare-actions .ghost {
+  color: #4f5862;
 }
 
 .voices-card {
@@ -467,6 +582,14 @@ input[type="text"]:focus {
 
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .compare-form {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-actions {
+    grid-column: auto;
   }
 
   .card {

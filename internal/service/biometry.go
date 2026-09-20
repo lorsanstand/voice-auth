@@ -88,6 +88,20 @@ func (a *AudioBiometry) DeleteVoice(ctx context.Context, id string) error {
 	return nil
 }
 
+func (a *AudioBiometry) Compare(samplesA, samplesB [][]float64) (float32, error) {
+	if len(samplesA) < 15 || len(samplesB) < 15 {
+		return 0, ErrSmallSamples
+	}
+
+	first := a.ToVector(samplesA)
+	second := a.ToVector(samplesB)
+	similarity, err := mathlib.CosineSimilarity(first, second)
+	if err != nil {
+		return 0, fmt.Errorf("compare MFCC vectors: %w", err)
+	}
+	return float32(similarity), nil
+}
+
 func (a *AudioBiometry) ToVector(samples [][]float64) []float64 {
 	if len(samples) == 0 || len(samples[0]) == 0 {
 		return nil

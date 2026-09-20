@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build Linux package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/voice-auth-linux
+          go build -trimpath -ldflags="-s -w" -o dist/voice-auth-linux/voice-auth ./cmd
+
+          runtime_dir="$(go env GOPATH)/pkg/mod/github.com/k2-fsa/sherpa-onnx-go-linux@v1.13.8/lib/x86_64-unknown-linux-gnu"
+          cp "$runtime_dir"/libonnxruntime.so dist/voice-auth-linux/
+          cp "$runtime_dir"/libsherpa-onnx-c-api.so dist/voice-auth-linux/
+          cp "$runtime_dir"/libsherpa-onnx-cxx-api.so dist/voice-auth-linux/
+
+          cat > dist/voice-auth-linux/run.sh <<'EOF'
+          #!/usr/bin/env sh
+          set -e
+          DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+          exec env LD_LIBRARY_PATH="$DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$DIR/voice-auth" "$@"
+          EOF
+          chmod +x dist/voice-auth-linux/run.sh
+          tar -C dist -czf dist/voice-auth-linux-amd64.tar.gz voice-auth-linux
+
+      - name: Upload Linux package
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-auth-linux
+          path: dist/voice-auth-linux-amd64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build Windows package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path dist\voice-auth-windows | Out-Null
+          go build -trimpath -ldflags="-s -w" -o dist\voice-auth-windows\voice-auth.exe .\cmd
+
+          $runtimeDir = Join-Path $env:USERPROFILE "go\pkg\mod\github.com\k2-fsa\sherpa-onnx-go-windows@v1.13.8\lib\x86_64-pc-windows-gnu"
+          Copy-Item (Join-Path $runtimeDir "onnxruntime.dll") dist\voice-auth-windows\
+          Copy-Item (Join-Path $runtimeDir "sherpa-onnx-c-api.dll") dist\voice-auth-windows\
+          Copy-Item (Join-Path $runtimeDir "sherpa-onnx-cxx-api.dll") dist\voice-auth-windows\
+          Compress-Archive -Path dist\voice-auth-windows\* -DestinationPath dist\voice-auth-windows-amd64.zip
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-auth-windows
+          path: dist/voice-auth-windows-amd64.zip
+
+  publish:
+    runs-on: ubuntu-latest
+    needs:
+      - build-linux
+      - build-windows
+    steps:
+      - name: Download release packages
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*

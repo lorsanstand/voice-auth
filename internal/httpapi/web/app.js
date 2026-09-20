@@ -1,5 +1,6 @@
 const recordedFiles = new WeakMap();
 const recorderResetters = new WeakMap();
+const previewURLs = new WeakMap();
 
 function showToast(message, isError = false) {
   const toast = document.querySelector("#toast");
@@ -35,28 +36,62 @@ async function requestJSON(url, options = {}) {
 }
 
 function connectFileInput(input) {
-  const name = input.closest(".file-drop").querySelector("[data-file-name]");
   input.addEventListener("change", () => {
     recordedFiles.delete(input);
-    name.textContent = input.files[0]?.name || "Файл ещё не выбран";
+    updateAudioPreview(input, input.files[0]);
   });
 }
 
 function buildAudioFormData(form) {
-  const input = form.querySelector('input[type="file"]');
-  const file = recordedFiles.get(input) || input.files[0];
-  if (!file) {
-    throw new Error("Выбери WAV-файл или сначала запиши голос");
-  }
-
   const formData = new FormData();
   form.querySelectorAll("[name]").forEach((field) => {
     if (field.type !== "file") {
       formData.append(field.name, field.value);
+      return;
     }
+
+    const file = recordedFiles.get(field) || field.files[0];
+    if (!file) {
+      throw new Error(`Выбери файл для поля «${field.closest("label").querySelector(".file-title").textContent}»`);
+    }
+    formData.append(field.name, file, file.name);
   });
-  formData.append(input.name, file, file.name);
   return formData;
+}
+
+function updateAudioPreview(input, file) {
+  const fileName = input.closest(".file-drop").querySelector("[data-file-name]");
+  const preview = input.parentElement.nextElementSibling;
+  fileName.textContent = file?.name || "Файл ещё не выбран";
+  if (!preview?.matches("[data-audio-preview]")) return;
+
+  const previousURL = previewURLs.get(input);
+  if (previousURL) {
+    URL.revokeObjectURL(previousURL);
+    previewURLs.delete(input);
+  }
+  preview.hidden = !file;
+  if (!file) {
+    preview.replaceChildren();
+    return;
+  }
+
+  const url = URL.createObjectURL(file);
+  previewURLs.set(input, url);
+  preview.innerHTML = `
+    <audio controls preload="metadata" src="${url}"></audio>
+    <button type="button" class="clear-audio" data-clear-audio>Очистить</button>
+  `;
+  preview.querySelector("[data-clear-audio]").addEventListener("click", () => {
+    clearAudioInput(input);
+  });
+}
+
+function clearAudioInput(input) {
+  recordedFiles.delete(input);
+  input.value = "";
+  updateAudioPreview(input, null);
+  recorderResetters.get(input)?.();
 }
 
 function supportedRecordingType() {
@@ -138,6 +173,7 @@ function connectRecorder(container) {
   const startButton = container.querySelector("[data-record-start]");
   const stopButton = container.querySelector("[data-record-stop]");
   const status = container.querySelector("[data-record-status]");
+  const levelFill = container.querySelector("[data-level-fill]");
   const recordingSupported = Boolean(
     navigator.mediaDevices?.getUserMedia && window.MediaRecorder,
   );
@@ -146,11 +182,51 @@ function connectRecorder(container) {
   let chunks = [];
   let timer;
   let startedAt;
+  let audioContext;
+  let analyser;
+  let animationFrame;
+  let levelData;
+
+  function stopLevelMeter() {
+    window.cancelAnimationFrame(animationFrame);
+    animationFrame = undefined;
+    audioContext?.close();
+    audioContext = undefined;
+    analyser = undefined;
+    levelData = undefined;
+    levelFill.style.width = "0%";
+  }
+
+  function updateLevelMeter() {
+    if (!analyser || !levelData) return;
+    analyser.getByteTimeDomainData(levelData);
+    let sum = 0;
+    for (const value of levelData) {
+      const normalized = (value - 128) / 128;
+      sum += normalized * normalized;
+    }
+    const rms = Math.sqrt(sum / levelData.length);
+    levelFill.style.width = `${Math.min(100, Math.max(0, rms * 260))}%`;
+    animationFrame = window.requestAnimationFrame(updateLevelMeter);
+  }
+
+  async function startLevelMeter() {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    audioContext = new AudioContext();
+    await audioContext.resume();
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    levelData = new Uint8Array(analyser.fftSize);
+    audioContext.createMediaStreamSource(stream).connect(analyser);
+    updateLevelMeter();
+  }
 
   function reset() {
     status.textContent = "Можно записать голос через микрофон";
     startButton.disabled = !recordingSupported;
     stopButton.disabled = true;
+    stopLevelMeter();
   }
 
   recorderResetters.set(input, reset);
@@ -170,6 +246,7 @@ function connectRecorder(container) {
       recorder = mimeType
         ? new MediaRecorder(stream, { mimeType })
         : new MediaRecorder(stream);
+      await startLevelMeter();
       chunks = [];
       startedAt = Date.now();
       recorder.addEventListener("dataavailable", (event) => {
@@ -178,6 +255,7 @@ function connectRecorder(container) {
       recorder.addEventListener("stop", async () => {
         window.clearInterval(timer);
         stream.getTracks().forEach((track) => track.stop());
+        stopLevelMeter();
         stopButton.disabled = true;
         status.textContent = "Подготавливаем WAV-файл…";
         try {
@@ -185,7 +263,7 @@ function connectRecorder(container) {
           const file = await recordingToWav(blob);
           recordedFiles.set(input, file);
           input.value = "";
-          input.closest("label").querySelector("[data-file-name]").textContent = file.name;
+          updateAudioPreview(input, file);
           status.textContent = "Запись готова к отправке";
           startButton.disabled = false;
         } catch (error) {
@@ -202,6 +280,7 @@ function connectRecorder(container) {
       }, 1000);
     } catch (error) {
       stream?.getTracks().forEach((track) => track.stop());
+      stopLevelMeter();
       startButton.disabled = false;
       status.textContent = error.name === "NotAllowedError"
         ? "Доступ к микрофону запрещён"
@@ -218,10 +297,25 @@ function connectRecorder(container) {
 }
 
 function renderResult(resultElement, voice) {
-  resultElement.className = "result";
-  resultElement.innerHTML = `
+  renderSimilarityResult(resultElement, voice.Similarity, `
     <div class="result-name">${escapeHTML(voice.Content || "Без имени")}</div>
-    <div class="score">Сходство: ${(Number(voice.Similarity) * 100).toFixed(2)}%</div>
+  `);
+}
+
+function renderSimilarityResult(resultElement, similarity, prefix = "") {
+  const score = Number(similarity);
+  const percentage = (score * 100).toFixed(2);
+  const category = score >= 0.85
+    ? ["high", "Высокое сходство", "Записи, вероятно, принадлежат одному голосу."]
+    : score >= 0.65
+      ? ["medium", "Среднее сходство", "Результат неоднозначный, лучше проверить дополнительной записью."]
+      : ["low", "Низкое сходство", "Записи, скорее всего, принадлежат разным голосам."];
+  resultElement.className = `result ${category[0]}`;
+  resultElement.innerHTML = `
+    ${prefix}
+    <div class="score">Сходство: ${percentage}%</div>
+    <div class="result-category">${category[1]}</div>
+    <div class="result-note">${category[2]}</div>
   `;
 }
 
@@ -273,9 +367,7 @@ function setupEngine(engine) {
       });
       engine.registerForm.reset();
       const input = engine.registerForm.querySelector('input[type="file"]');
-      recordedFiles.delete(input);
-      recorderResetters.get(input)?.();
-      engine.registerForm.querySelector("[data-file-name]").textContent = "Файл ещё не выбран";
+      clearAudioInput(input);
       showToast(`${engine.name}: голос успешно зарегистрирован`);
       await loadVoices(engine);
     } catch (error) {
@@ -306,7 +398,37 @@ function setupEngine(engine) {
   });
 
   engine.refreshButton.addEventListener("click", () => loadVoices(engine));
+  engine.clearButton?.addEventListener("click", () => {
+    engine.registerForm.querySelectorAll('input[type="file"]').forEach(clearAudioInput);
+  });
   loadVoices(engine);
+}
+
+function setupCompare(compare) {
+  compare.form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = compare.form.querySelector('button[type="submit"]');
+    setLoading(button, true);
+    compare.result.className = "result empty";
+    compare.result.textContent = "Сравниваем записи…";
+    try {
+      const data = await requestJSON(`${compare.basePath}/voices/compare`, {
+        method: "POST",
+        body: buildAudioFormData(compare.form),
+      });
+      renderSimilarityResult(compare.result, data.similarity);
+    } catch (error) {
+      compare.result.className = "result empty";
+      compare.result.textContent = error.message;
+    } finally {
+      setLoading(button, false);
+    }
+  });
+  compare.clearButton.addEventListener("click", () => {
+    compare.form.querySelectorAll('input[type="file"]').forEach(clearAudioInput);
+    compare.result.className = "result empty";
+    compare.result.textContent = "Результат сравнения появится здесь.";
+  });
 }
 
 function escapeHTML(value) {
@@ -324,6 +446,7 @@ const engines = [
     voicesList: document.querySelector("#voices-list"),
     searchResult: document.querySelector("#search-result"),
     refreshButton: document.querySelector("#refresh-button"),
+    clearButton: document.querySelector("#register-form [data-clear-form]"),
   },
   {
     name: "ECAPA-TDNN",
@@ -333,9 +456,22 @@ const engines = [
     voicesList: document.querySelector("#ecapa-voices-list"),
     searchResult: document.querySelector("#ecapa-search-result"),
     refreshButton: document.querySelector("#ecapa-refresh-button"),
+    clearButton: document.querySelector("#ecapa-register-form [data-clear-form]"),
   },
 ];
 
 document.querySelectorAll('input[type="file"]').forEach(connectFileInput);
 document.querySelectorAll("[data-recorder]").forEach(connectRecorder);
 engines.forEach(setupEngine);
+setupCompare({
+  basePath: "",
+  form: document.querySelector("#compare-form"),
+  result: document.querySelector("#compare-result"),
+  clearButton: document.querySelector("#compare-form [data-clear-form]"),
+});
+setupCompare({
+  basePath: "/ecapa",
+  form: document.querySelector("#ecapa-compare-form"),
+  result: document.querySelector("#ecapa-compare-result"),
+  clearButton: document.querySelector("#ecapa-compare-form [data-clear-form]"),
+});

@@ -45,11 +45,13 @@
               <span class="file-title">Выбери WAV-файл</span>
               <span class="file-name" data-file-name>Файл ещё не выбран</span>
             </label>
+            <div class="audio-preview" data-audio-preview hidden></div>
             <div class="record-controls" data-recorder data-input="register-file">
               <div class="record-actions">
                 <button type="button" class="record-button" data-record-start>Записать голос</button>
                 <button type="button" class="record-button stop" data-record-stop disabled>Остановить</button>
               </div>
+              <div class="level-meter" aria-label="Уровень микрофона"><span data-level-fill></span></div>
               <span class="record-status" data-record-status>Можно записать голос через микрофон</span>
             </div>
             <button type="submit" class="button primary">Зарегистрировать голос</button>
@@ -70,11 +72,13 @@
               <span class="file-title">Загрузи проверочную запись</span>
               <span class="file-name" data-file-name>Файл ещё не выбран</span>
             </label>
+            <div class="audio-preview" data-audio-preview hidden></div>
             <div class="record-controls" data-recorder data-input="search-file">
               <div class="record-actions">
                 <button type="button" class="record-button" data-record-start>Записать проверку</button>
                 <button type="button" class="record-button stop" data-record-stop disabled>Остановить</button>
               </div>
+              <div class="level-meter" aria-label="Уровень микрофона"><span data-level-fill></span></div>
               <span class="record-status" data-record-status>Можно записать голос через микрофон</span>
             </div>
             <button type="submit" class="button secondary">Найти ближайший голос</button>
@@ -93,6 +97,33 @@
         <div id="voices-list" class="voices-list">
           <div class="loading">Загрузка профилей…</div>
         </div>
+      </section>
+      <section class="card compare-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Без базы</p>
+            <h2>Сравнить две записи</h2>
+          </div>
+        </div>
+        <form id="compare-form" class="compare-form">
+          <label class="file-drop">
+            <input id="compare-first-file" name="first" type="file" accept=".wav,audio/wav">
+            <span class="file-title">Первая запись</span>
+            <span class="file-name" data-file-name>Файл ещё не выбран</span>
+          </label>
+          <div class="audio-preview" data-audio-preview hidden></div>
+          <label class="file-drop">
+            <input id="compare-second-file" name="second" type="file" accept=".wav,audio/wav">
+            <span class="file-title">Вторая запись</span>
+            <span class="file-name" data-file-name>Файл ещё не выбран</span>
+          </label>
+          <div class="audio-preview" data-audio-preview hidden></div>
+          <div class="compare-actions">
+            <button type="submit" class="button secondary">Сравнить записи</button>
+            <button type="button" class="button ghost" data-clear-form>Очистить</button>
+          </div>
+        </form>
+        <div id="compare-result" class="result empty">Результат сравнения появится здесь.</div>
       </section>
     </section>
 
@@ -124,11 +155,13 @@
               <span class="file-title">Выбери WAV-файл</span>
               <span class="file-name" data-file-name>Файл ещё не выбран</span>
             </label>
+            <div class="audio-preview" data-audio-preview hidden></div>
             <div class="record-controls" data-recorder data-input="ecapa-register-file">
               <div class="record-actions">
                 <button type="button" class="record-button" data-record-start>Записать голос</button>
                 <button type="button" class="record-button stop" data-record-stop disabled>Остановить</button>
               </div>
+              <div class="level-meter" aria-label="Уровень микрофона"><span data-level-fill></span></div>
               <span class="record-status" data-record-status>Можно записать голос через микрофон</span>
             </div>
             <button type="submit" class="button primary">Зарегистрировать голос</button>
@@ -149,11 +182,13 @@
               <span class="file-title">Загрузи проверочную запись</span>
               <span class="file-name" data-file-name>Файл ещё не выбран</span>
             </label>
+            <div class="audio-preview" data-audio-preview hidden></div>
             <div class="record-controls" data-recorder data-input="ecapa-search-file">
               <div class="record-actions">
                 <button type="button" class="record-button" data-record-start>Записать проверку</button>
                 <button type="button" class="record-button stop" data-record-stop disabled>Остановить</button>
               </div>
+              <div class="level-meter" aria-label="Уровень микрофона"><span data-level-fill></span></div>
               <span class="record-status" data-record-status>Можно записать голос через микрофон</span>
             </div>
             <button type="submit" class="button secondary">Найти ближайший голос</button>
@@ -172,6 +207,33 @@
         <div id="ecapa-voices-list" class="voices-list">
           <div class="loading">Загрузка профилей…</div>
         </div>
+      </section>
+      <section class="card compare-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Без базы</p>
+            <h2>Сравнить две записи</h2>
+          </div>
+        </div>
+        <form id="ecapa-compare-form" class="compare-form">
+          <label class="file-drop">
+            <input id="ecapa-compare-first-file" name="first" type="file" accept=".wav,audio/wav">
+            <span class="file-title">Первая запись</span>
+            <span class="file-name" data-file-name>Файл ещё не выбран</span>
+          </label>
+          <div class="audio-preview" data-audio-preview hidden></div>
+          <label class="file-drop">
+            <input id="ecapa-compare-second-file" name="second" type="file" accept=".wav,audio/wav">
+            <span class="file-title">Вторая запись</span>
+            <span class="file-name" data-file-name>Файл ещё не выбран</span>
+          </label>
+          <div class="audio-preview" data-audio-preview hidden></div>
+          <div class="compare-actions">
+            <button type="submit" class="button secondary">Сравнить записи</button>
+            <button type="button" class="button ghost" data-clear-form>Очистить</button>
+          </div>
+        </form>
+        <div id="ecapa-compare-result" class="result empty">Результат сравнения появится здесь.</div>
       </section>
     </section>
 
