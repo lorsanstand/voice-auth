@@ -50,7 +50,7 @@ func main() {
 
 	handler := httpapi.NewHandler(biometry, ecapa)
 
-	log.Println("HTTP server listening on :8080")
+	log.Println("HTTP server listening on http://0.0.0.0:8080")
 	if err := http.ListenAndServe(":8080", handler); err != nil {
 		log.Fatal(err)
 	}
