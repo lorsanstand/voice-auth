@@ -1,0 +1,5 @@
+.idea/
+chromem_data/
+main
+*.wav
+3dspeaker_speech_campplus_sv_zh-cn_16k-common.onnx
